@@ -21,6 +21,7 @@ func main() {
 
 	passwords := make([]string, 0)
 	validCount := 0
+	validCountNew := 0
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -36,8 +37,12 @@ func main() {
 		if validatePassword(password, min, max, letter) {
 			validCount++
 		}
+		if validatePasswordNew(password, min, max, letter) {
+			validCountNew++
+		}
 	}
 	fmt.Println(validCount)
+	fmt.Println(validCountNew)
 
 }
 
@@ -59,6 +64,17 @@ func decodePolicy(policy string) (string, int, int) {
 func validatePassword(password string, min int, max int, letter string) bool {
 	count := strings.Count(password, letter)
 	if count >= min && count <= max {
+		return true
+	}
+	return false
+}
+
+func validatePasswordNew(password string, min int, max int, letter string) bool {
+	index1 := min - 1
+	index2 := max - 1
+	char1 := string(password[index1])
+	char2 := string(password[index2])
+	if (char1 == letter) != (char2 == letter) {
 		return true
 	}
 	return false
