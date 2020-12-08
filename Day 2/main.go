@@ -20,8 +20,8 @@ func main() {
 	defer f.Close()
 
 	passwords := make([]string, 0)
-	validCount := 0
-	validCountNew := 0
+	var validCount int
+	var validCountNew int
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -33,7 +33,10 @@ func main() {
 		split := strings.Split(term, ":")
 		policy := split[0]
 		password := strings.Trim(split[1], " ")
-		letter, min, max := decodePolicy(policy)
+		letter, min, max, err := decodePolicy(policy)
+		if err != nil {
+			check(err)
+		}
 		if validatePassword(password, min, max, letter) {
 			validCount++
 		}
@@ -47,18 +50,22 @@ func main() {
 }
 
 // decodePolicy returns the letter, and range of occurences
-func decodePolicy(policy string) (string, int, int) {
+func decodePolicy(policy string) (string, int, int, error) {
 	split := strings.Split(policy, " ")
 	letter := split[1]
 
 	minmax := strings.Trim(split[0], " ")
 	minmaxsplit := strings.Split(minmax, "-")
 	min, err := strconv.Atoi(minmaxsplit[0])
-	check(err)
+	if err != nil {
+		return "", 0, 0, err
+	}
 	max, err := strconv.Atoi(minmaxsplit[1])
-	check(err)
+	if err != nil {
+		return "", 0, 0, err
+	}
 
-	return letter, min, max
+	return letter, min, max, nil
 }
 
 func validatePassword(password string, min int, max int, letter string) bool {
