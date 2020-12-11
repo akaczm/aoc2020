@@ -12,27 +12,30 @@ import (
 	"github.com/pkg/errors"
 )
 
+// IPv4 holds the address and netmask in uint32 format
 type IPv4 struct {
 	addr uint32
 	mask uint32
 }
 
+// NewIP generates a new IP based on a string using CIDR notation (eg. 10.0.0.1/24).
 func NewIP(address string) (IPv4, error) {
 	split := strings.Split(address, "/")
 	addr := split[0]
 	ipv4, err := decodeAddress(addr)
 	if err != nil {
-		return IPv4{}, err
+		return IPv4{}, errors.Wrap(err, "Error creating IPv4")
 	}
 	mask := split[1]
 	bitmask, err := decodeMask(mask)
 	if err != nil {
-		return IPv4{}, err
+		return IPv4{}, errors.Wrap(err, "Error creating IPv4")
 	}
 	ip := IPv4{ipv4, bitmask}
 	return ip, nil
 }
 
+// ToString returns the IPv4 struct as a string in CIDR notation.
 func (ip IPv4) ToString() string {
 	bitmask := uint32(0b11111111)
 	addr := ip.addr
@@ -47,6 +50,7 @@ func (ip IPv4) ToString() string {
 	return output
 }
 
+// decodeAddress decodes IPv4 address and converts it into proper uint32 values
 func decodeAddress(address string) (uint32, error) {
 	split := strings.Split(address, ".")
 	if len(split) != 4 {
@@ -75,6 +79,7 @@ func decodeAddress(address string) (uint32, error) {
 	return IPaddress, nil
 }
 
+// decodeMask decodes the netmask and does simple validation.
 func decodeMask(mask string) (uint32, error) {
 	imask, err := strconv.Atoi(mask)
 	var outmask uint32
