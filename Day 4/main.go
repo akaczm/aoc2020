@@ -24,6 +24,31 @@ type Passport struct {
 	CountryID  string
 }
 
+func NewPassport(input []string, validators []Validator) (Passport, error) {
+	passport, err := decodePassport(input)
+
+	if err != nil {
+		return Passport{}, errors.Wrap(err, "error decoding passport")
+	}
+
+	for _, validator := range validators {
+		valid, err := validator.Validate(passport)
+		if err != nil {
+			return Passport{}, errors.Wrap(err, "error validating password")
+		}
+		if !valid {
+			return Passport{}, &PassportInvalidError{}
+		}
+	}
+	return passport, nil
+}
+
+type PassportInvalidError struct{}
+
+func (e *PassportInvalidError) Error() string {
+	return "Passport Invalid"
+}
+
 type ValueValidatorPair struct {
 	Val   Validator
 	Value string
@@ -46,20 +71,20 @@ func (p Passport) GetFields() map[string]string {
 
 // Validator interface expects a string input, returns a boolean and error if applicable.
 type Validator interface {
-	Validate(data string) (bool, error)
+	Validate(passport Passport) (bool, error)
 }
 
 // ValidateBirthyear validates the birthyear according to requirements.
 type ValidateBirthyear struct{}
 
 // Validate validates according to requirements.
-func (v ValidateBirthyear) Validate(data string) (bool, error) {
-	if data == "" {
+func (v ValidateBirthyear) Validate(passport Passport) (bool, error) {
+	if passport.Birthyear == "" {
 		return false, nil
 	}
-	birthyear, err := strconv.Atoi(data)
+	birthyear, err := strconv.Atoi(passport.Birthyear)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "error decoding birth year")
 	}
 	if birthyear < 1920 || birthyear > 2002 {
 		return false, nil
@@ -70,13 +95,13 @@ func (v ValidateBirthyear) Validate(data string) (bool, error) {
 type ValidateIssueyear struct{}
 
 // Validate validates according to requirements.
-func (v ValidateIssueyear) Validate(data string) (bool, error) {
-	if data == "" {
+func (v ValidateIssueyear) Validate(passport Passport) (bool, error) {
+	if passport.Issueyear == "" {
 		return false, nil
 	}
-	issueyear, err := strconv.Atoi(data)
+	issueyear, err := strconv.Atoi(passport.Issueyear)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "error decoding issue year")
 	}
 	if issueyear < 2010 || issueyear > 2020 {
 		return false, nil
@@ -87,13 +112,13 @@ func (v ValidateIssueyear) Validate(data string) (bool, error) {
 type ValidateExpyear struct{}
 
 // Validate validates according to requirements.
-func (v ValidateExpyear) Validate(data string) (bool, error) {
-	if data == "" {
+func (v ValidateExpyear) Validate(passport Passport) (bool, error) {
+	if passport.Expyear == "" {
 		return false, nil
 	}
-	expyear, err := strconv.Atoi(data)
+	expyear, err := strconv.Atoi(passport.Expyear)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "error decoding expiration year")
 	}
 	if expyear < 2020 || expyear > 2030 {
 		return false, nil
@@ -104,16 +129,16 @@ func (v ValidateExpyear) Validate(data string) (bool, error) {
 type ValidateHeight struct{}
 
 // Validate validates according to requirements.
-func (v ValidateHeight) Validate(data string) (bool, error) {
-	if data == "" {
+func (v ValidateHeight) Validate(passport Passport) (bool, error) {
+	if passport.Height == "" {
 		return false, nil
 	}
-	valuestr := data[:len(data)-2]
+	valuestr := passport.Height[:len(passport.Height)-2]
 	value, err := strconv.Atoi(valuestr)
 	if err != nil {
 		return false, err
 	}
-	suffix := data[len(data)-2:]
+	suffix := passport.Height[len(passport.Height)-2:]
 	if suffix == "in" {
 		if value < 59 || value > 76 {
 			return false, nil
@@ -129,15 +154,15 @@ func (v ValidateHeight) Validate(data string) (bool, error) {
 type ValidateHaircolor struct{}
 
 // Validate validates according to requirements.
-func (v ValidateHaircolor) Validate(data string) (bool, error) {
+func (v ValidateHaircolor) Validate(passport Passport) (bool, error) {
 	const validchars string = "0123456789abcdef"
 
-	if data == "" {
+	if passport.Haircolor == "" {
 		return false, nil
 	}
 
-	prefix := string(data[0])
-	value := data[1:]
+	prefix := string(passport.Haircolor[0])
+	value := passport.Haircolor[1:]
 	if prefix != "#" {
 		return false, nil
 	}
@@ -155,8 +180,8 @@ func (v ValidateHaircolor) Validate(data string) (bool, error) {
 type ValidateEyecolor struct{}
 
 // Validate validates according to requirements.
-func (v ValidateEyecolor) Validate(data string) (bool, error) {
-	switch data {
+func (v ValidateEyecolor) Validate(passport Passport) (bool, error) {
+	switch passport.Eyecolor {
 	case "amb":
 		return true, nil
 	case "blu":
@@ -178,12 +203,12 @@ func (v ValidateEyecolor) Validate(data string) (bool, error) {
 type ValidatePID struct{}
 
 // Validate validates according to requirements.
-func (v ValidatePID) Validate(data string) (bool, error) {
-	_, err := strconv.Atoi(data)
+func (v ValidatePID) Validate(passport Passport) (bool, error) {
+	_, err := strconv.Atoi(passport.PassportID)
 	if err != nil {
 		return false, errors.Wrap(err, "error decoding PID")
 	}
-	if len(data) == 9 {
+	if len(passport.PassportID) == 9 {
 		return true, nil
 	}
 	return false, nil
@@ -192,7 +217,7 @@ func (v ValidatePID) Validate(data string) (bool, error) {
 type ValidateCID struct{}
 
 // Validate validates according to requirements.
-func (v ValidateCID) Validate(data string) (bool, error) {
+func (v ValidateCID) Validate(passport Passport) (bool, error) {
 	return true, nil
 }
 
@@ -211,23 +236,35 @@ func getDigits(i int) int {
 }
 
 func main() {
-	f, err := os.Open("input")
+	validators := []Validator{
+		ValidateBirthyear{},
+		ValidateCID{},
+		ValidateExpyear{},
+		ValidateEyecolor{},
+		ValidateHaircolor{},
+		ValidateHeight{},
+		ValidateIssueyear{},
+		ValidatePID{},
+	}
+
+	validPassports := make([]Passport, 0)
+	f, err := os.Open("testinput")
 	check(err)
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
-
-	passports := make([]Passport, 0)
-
 	scanbuffer := make([]string, 0)
+
 	for scanner.Scan() {
 		if scanner.Text() == "" {
-			decodedpassport, err := decodePassport(scanbuffer)
+			decodedpassport, err := NewPassport(scanbuffer, validators)
+			if _, ok := err.(*PassportInvalidError); ok {
+				//continue
+			}
 			if err != nil {
 				fmt.Println(err)
-				break
 			} else {
-				passports = append(passports, decodedpassport)
+				validPassports = append(validPassports, decodedpassport)
 				scanbuffer = nil
 			}
 		} else {
@@ -237,52 +274,17 @@ func main() {
 			}
 		}
 	}
-	decodedpassport, err := decodePassport(scanbuffer)
+	decodedpassport, err := NewPassport(scanbuffer, validators)
+	if _, ok := err.(*PassportInvalidError); ok {
+		//continue
+	}
 	if err != nil {
 		fmt.Println(err)
 	} else {
-		passports = append(passports, decodedpassport)
+		validPassports = append(validPassports, decodedpassport)
 	}
-	scanbuffer = nil
-	var validPassports int
-	// Simple check for part 1
-	for _, passport := range passports {
-		if validatePassport(passport) {
-			validPassports++
-		}
-	}
-	fmt.Println(validPassports)
-	// In-depth check for part 2
-	var validPassportsExtensive int
-	for _, passport := range passports {
-		var validatorPair []ValueValidatorPair
-		isValid := false
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidateBirthyear{}, passport.Birthyear})
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidateCID{}, passport.CountryID})
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidateExpyear{}, passport.Expyear})
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidateEyecolor{}, passport.Eyecolor})
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidateHaircolor{}, passport.Haircolor})
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidateHeight{}, passport.Height})
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidateIssueyear{}, passport.Issueyear})
-		validatorPair = append(validatorPair, ValueValidatorPair{ValidatePID{}, passport.PassportID})
-		for _, pair := range validatorPair {
-			result, err := validatePassportExtensive(pair.Val, pair.Value)
-			if err != nil {
-				isValid = false
-				break
-			}
-			if result == false {
-				isValid = false
-				break
-			} else if result == true {
-				isValid = true
-			}
-		}
-		if isValid {
-			validPassportsExtensive++
-		}
-	}
-	fmt.Println(validPassportsExtensive)
+	fmt.Println(len(validPassports))
+
 }
 
 func decodePassport(raw []string) (Passport, error) {
@@ -320,8 +322,4 @@ func validatePassport(passport Passport) bool {
 		}
 	}
 	return true
-}
-
-func validatePassportExtensive(validator Validator, data string) (bool, error) {
-	return validator.Validate(data)
 }
